@@ -1,11 +1,24 @@
 from setuptools import setup
 
-setup(name='funniest',
+setup(name='generate potree',
       version='0.1',
-      description='The funniest joke in the world',
-      url='http://github.com/storborg/funniest',
-      author='Flying Circus',
-      author_email='flyingcircus@example.com',
-      license='MIT',
-      packages=['funniest'],
+      description='Download ahn2 tile and convert to potree',
+      url='https://github.com/evetion/potree_kickstarter',
+      author='',
+      author_email='',
+      license='',
+      packages=['potree_kickstarter'],
+      scripts=['bin/generate_potree'],
+      install_requires=[
+      		'logging',
+      		'numpy',
+      		'matplotlib',
+      		'owslib',
+      		'shapely',
+      		'liblas',
+      		'lxml',
+      		'gdal',
+      		'mako',
+      		'docopt'
+      ],
       zip_safe=False)

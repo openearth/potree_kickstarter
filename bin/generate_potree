@@ -1,7 +1,7 @@
 """generate_potree
 
 	Usage:
-		generate_potree.py generate-potree <lat> <lon> <output>
+		generate_potree.py <lat> <lon> <output>
 		generate_potree.py (-h | --help)
 
 	Arguments:
@@ -20,7 +20,7 @@ from docopt import docopt
 if __name__ == '__main__':
 	args = docopt(__doc__)
 
-	import ahn2potree as ap
+	import potree_kickstarter as ap
 	import os
 
 	kaart = ap.coordinates2bladnr(float(args['<lat>']), float(args['<lon>']))
