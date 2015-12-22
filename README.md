@@ -14,7 +14,7 @@ Depends on the following external tools (in Path):
     
 An ansible script for compiling these dependencies in Ubuntu 15.10 is provided.
 
-# Reguirments
+# Requirements
    * [Ubuntu 15.10 machine](http://www.ubuntu.com/download/desktop)
    * [Python 2.7.5](https://www.python.org/downloads/)
    * pip `apt-get install python-pip`
