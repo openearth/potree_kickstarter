@@ -38,6 +38,7 @@ import skimage as ski
 
 # for coordinate transformation
 import osgeo.osr
+from osgeo import gdal
 
 # for wms template
 from mako.template import Template
@@ -144,6 +145,50 @@ def get_aerialphoto(x_max, x_min, y_max, y_min, size_x, size_y, bladnr):
     if os.path.exists(output_name):
         logging.info('%s is already available. Image will not be downloaded and processed', output_name)
     else:
+        width = abs(x_max - x_min)
+        height = abs(y_max - y_min)
+        if height == 0 or width == 0:
+            logging.info("Requested bounds have one or two empty dimensions")
+            return None
+
+        f = float(width) / height 
+
+        if f == 0:
+            f = 1
+
+        if abs(x_max - x_min) > abs(y_max - y_min):
+            x_size = size_x
+            y_size = int(x_size/f)
+        else:
+            y_size = size_y
+            x_size = int(y_size*f)
+
+        gdal_wmsrequest = """<GDAL_WMS>
+          <Service name="WMS">
+            <Version>1.0.0</Version>
+            <wmtver>1.0.0</wmtver>
+            <ServerUrl>http://geodata1.nationaalgeoregister.nl/luchtfoto/wms?wmtver=1.0</ServerUrl>
+            <Layers>luchtfoto</Layers>
+            <SRS>EPSG:28992</SRS>
+          </Service>
+          <DataWindow>
+            <UpperLeftX>{x_min}</UpperLeftX>
+            <UpperLeftY>{y_max}</UpperLeftY>
+            <LowerRightX>{x_max}</LowerRightX>
+            <LowerRightY>{y_min}</LowerRightY>
+            <SizeX>{x_size}</SizeX>
+            <SizeY>{y_size}</SizeY>
+          </DataWindow>
+          <Projection>EPSG:28992</Projection>
+          <BlockSizeX>256</BlockSizeX>
+          <BlockSizeY>256</BlockSizeY>
+        </GDAL_WMS>""".format(x_min=x_min, y_max=y_max, x_max=x_max, y_min=y_min, x_size=x_size, y_size=y_size)
+
+        ds = gdal.Open(gdal_wmsrequest)
+        tifdrv = gdal.GetDriverByName('GTIFF')
+        new = tifdrv.CreateCopy(output_name, ds, 0, ['COMPRESS=LZW'])
+        del new  # close and flush
+
         # create wms request from wms template
         wms_template = Template(filename='wms_template.xml')  # load xml template
 
@@ -255,8 +300,8 @@ def create_potree(lasfile, outputdirectory, bladnr):
 
 if __name__ == "__main__":
     kaart = coordinates2bladnr(lat, lon)
-    lasfile = get_lasfiles(kaart)
-    x_max, x_min, y_max, y_min = get_boundingbox(lasfile)
+    # lasfile = get_lasfiles(kaart)
+    # x_max, x_min, y_max, y_min = get_boundingbox(lasfile)
     img = get_aerialphoto(x_max, x_min, y_max, y_min, 8000, 8000, kaart)
     las_c = merge_lasfiles(kaart)
     color_lasfile = merge_color(img, las_c, kaart)
