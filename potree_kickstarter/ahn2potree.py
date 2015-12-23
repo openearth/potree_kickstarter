@@ -260,7 +260,7 @@ def merge_lasfiles(bladnr):
 
 # merge the aerial photo and lasfile to a lasfile with color.
 def merge_color(img,las_c, bladnr):
-    output = bladnr + '_color.laz'
+    output = bladnr + '_color.las'
     if os.path.exists(output):
         logging.info('%s is already available, color merge will not be executed', output)
     else:
