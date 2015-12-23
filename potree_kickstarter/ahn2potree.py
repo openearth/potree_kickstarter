@@ -34,6 +34,7 @@ import lxml.etree
 
 # for aerial photo saturation
 import skimage as ski
+import skimage.io as skio
 # import gdal
 
 # for coordinate transformation
@@ -140,18 +141,18 @@ def get_boundingbox(lasfile):
 
 # Get geotiff of a given bounding box from nationaal georegister
 def get_aerialphoto(x_max, x_min, y_max, y_min, size_x, size_y, bladnr):
-    image = bladnr + '.tiff'
-    output_name = bladnr + '_saturated.tiff'
+    image = os.path.abspath(bladnr + '.tiff')
+    output_name = os.path.abspath(bladnr + '_saturated.tiff')
     if os.path.exists(output_name):
         logging.info('%s is already available. Image will not be downloaded and processed', output_name)
     else:
         width = abs(x_max - x_min)
         height = abs(y_max - y_min)
         if height == 0 or width == 0:
-            logging.info("Requested bounds have one or two empty dimensions")
+            logging.warning("Requested bounds have one or two empty dimensions")
             return None
 
-        f = float(width) / height 
+        f = float(width) / height
 
         if f == 0:
             f = 1
@@ -186,70 +187,54 @@ def get_aerialphoto(x_max, x_min, y_max, y_min, size_x, size_y, bladnr):
 
         ds = gdal.Open(gdal_wmsrequest)
         tifdrv = gdal.GetDriverByName('GTIFF')
-        new = tifdrv.CreateCopy(output_name, ds, 0, ['COMPRESS=LZW'])
+        new = tifdrv.CreateCopy(image, ds, 0, [])
         del new  # close and flush
 
-        # create wms request from wms template
-        wms_template = Template(filename='wms_template.xml')  # load xml template
-
-        # fill in variables
-        a = wms_template.render(x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max, x_size=size_x, y_size=size_y)
-
-        f = open('wms.xml', 'w')
-        f.write(a)  # write xml to file for wms request
-        f.close()
-
-        # download image
-        if os.path.exists(image):
-            logging.info('image already available, %s will not be downloaded', image)
-        else:
-            subprocess.call(["gdal_translate", "wms.xml", output_name])
-
-        # img = (plt.imread(image)).astype(np.uint8)
+        img = (skio.imread(image)).astype(np.uint8)
 
         # # split image in N steps for processing (otherwise to much for virtual memory)
-        # img_new = np.zeros_like(img).astype(np.float)  # new empty array to fill with saturated rgb
+        img_new = np.zeros_like(img).astype(np.float)  # new empty array to fill with saturated rgb
 
-        # pic_size = float(len(img))           # no. of pixels in 1 direction
-        # n = 4                                # no. of processing steps
-        # steps = pic_size / n                 # pixels per processing step
+        pic_size = float(len(img[-1]))           # no. of pixels in 1 direction
+        n = 4                                # no. of processing steps
+        steps = pic_size / n                 # pixels per processing step
 
-        # for i in range(n):
-        #     lower = i * int(steps)
-        #     upper = (i + 1) * int(steps)
+        for i in range(n):
+            lower = i * int(steps)
+            upper = (i + 1) * int(steps)
 
-        #     img_process = img[lower:upper, :, :]
-        #     hsv = ski.color.rgb2hsv(img_process)
-        #     hsv[:, :, 1] *= 1.5
-        #     img_new[lower:upper, :, :] = ski.color.hsv2rgb(hsv)
+            img_process = img[lower:upper, :, :]
+            hsv = ski.color.rgb2hsv(img_process)
+            hsv[:, :, 1] *= 1.5
+            img_new[lower:upper, :, :] = ski.color.hsv2rgb(hsv)
 
-        #     # clear memory for next step
-        #     img_process = None
-        #     hsv = None
+            # clear memory for next step
+            img_process = None
+            hsv = None
 
-        # plt.imsave(output_name, arr=img_new, format='tiff')  # save picture as tiff (spatial information lost)
+        skio.imsave(output_name, arr=img_new)  # save picture as tiff (spatial information lost)
 
-        # img_new = None
-        # img = None
+        img_new = None
+        img = None
 
-        # # spatial information is lost in saturated tiff. Copy spatial info from original tiff
+        # spatial information is lost in saturated tiff. Copy spatial info from original tiff
         # # get geo information from tiff file with spatial information
-        # ds_input = gdal.Open(image)
-        # projection = ds_input.GetProjection()
-        # geotransform = ds_input.GetGeoTransform()
-        # gcp_count = ds_input.GetGCPs()
+        ds_input = gdal.Open(image)
+        projection = ds_input.GetProjection()
+        geotransform = ds_input.GetGeoTransform()
+        gcp_count = ds_input.GetGCPs()
 
-        # ds_output = gdal.Open(output_name, gdal.GA_Update)  # saturated tiff file without spatial information
+        ds_output = gdal.Open(output_name, gdal.GA_Update)  # saturated tiff file without spatial information
 
-        # ds_output.SetProjection(projection)  # copy spatial info
-        # ds_output.SetGeoTransform(geotransform)
-        # ds_output.SetGCPs(gcp_count, ds_input.GetGCPProjection())
+        ds_output.SetProjection(projection)  # copy spatial info
+        ds_output.SetGeoTransform(geotransform)
+        ds_output.SetGCPs(gcp_count, ds_input.GetGCPProjection())
 
-        # # close dataset
-        # ds_input = None
-        # ds_output = None
+        # close dataset
+        ds_input = None
+        ds_output = None
 
-        # os.remove(image)  # remove nonstaturated geotiff
+        os.remove(image)  # remove nonstaturated geotiff
     return output_name
 
 
@@ -279,7 +264,7 @@ def merge_color(img,las_c, bladnr):
     if os.path.exists(output):
         logging.info('%s is already available, color merge will not be executed', output)
     else:
-        tmp = subprocess.call(["las2las", "--color-source", img, "--point-format", "3", "--color-source-bands", "1", "2", "3",
+        tmp = subprocess.call(["las2las", "-c", "--color-source", img, "--point-format", "3", "--color-source-bands", "1", "2", "3",
                          "--color-source-scale", "256", "-i", las_c, "-o", output])
         os.remove(las_c)
         if tmp == 0:
@@ -300,9 +285,9 @@ def create_potree(lasfile, outputdirectory, bladnr):
 
 if __name__ == "__main__":
     kaart = coordinates2bladnr(lat, lon)
-    # lasfile = get_lasfiles(kaart)
-    # x_max, x_min, y_max, y_min = get_boundingbox(lasfile)
-    img = get_aerialphoto(x_max, x_min, y_max, y_min, 8000, 8000, kaart)
+    lasfile = get_lasfiles(kaart)
+    x_max, x_min, y_max, y_min = get_boundingbox(lasfile)
+    img = get_aerialphoto(x_max, x_min, y_max, y_min, 5000, 5000, kaart)
     las_c = merge_lasfiles(kaart)
     color_lasfile = merge_color(img, las_c, kaart)
     create_potree(color_lasfile, os.path.abspath(os.path.join(os.path.dirname(__file__), 'potree')), kaart)
