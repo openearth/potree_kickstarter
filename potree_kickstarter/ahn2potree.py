@@ -212,7 +212,7 @@ def get_aerialphoto(x_max, x_min, y_max, y_min, size_x, size_y, bladnr):
             img_process = None
             hsv = None
 
-        skio.imsave(output_name, arr=img_new)  # save picture as tiff (spatial information lost)
+        skio.imsave(output_name, arr=img_new, plugin='tifffile', compress=6)  # save picture as tiff (spatial information lost)
 
         img_new = None
         img = None
